@@ -6,6 +6,8 @@ use App\Models\Report;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use app\Models\Building;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Throwable;
 
 class ReportController extends Controller
 {
@@ -42,7 +44,7 @@ class ReportController extends Controller
             'priority' => 'required|in:Immediate,Normal',
             'description' => 'required|string',
             'image' => 'nullable|string',
-            'matricula' => 'required|integer|exists:users,matricula',
+            'userID' => 'required|integer|exists:users,userID',
             'status' => 'required|in:Pending,In Progress,Completed',
         ]);
 
@@ -77,22 +79,43 @@ class ReportController extends Controller
     // Actualizar un reporte
     public function update(Request $request, $folio)
     {
-        $request->validate([
-            'buildingID' => 'nullable|string|max:10|exists:buildings,buildingID',
-            'roomID' => 'nullable|string|max:10|exists:rooms,roomID',
-            'categoryID' => 'nullable|integer|exists:categories,categoryID',
-            'goodID' => 'nullable|integer|exists:goods,goodID', 
-            'priority' => 'nullable|in:Immediate,Normal',
-            'description' => 'nullable|string',
-            'image' => 'nullable|string',
-            'matricula' => 'nullable|integer|exists:users,matricula',
-            'status' => 'nullable|in:Pending,Diagnostiqued,Completed',
-        ]);
+        try {
+            $report = Report::findOrFail($folio);
 
-        $report = Report::findOrFail($folio);
-        $report->update($request->all());
+            $validated = $request->validate([
+                'buildingID' => 'nullable|string|max:10|exists:buildings,buildingID',
+                'roomID' => 'nullable|string|max:10|exists:rooms,roomID',
+                'categoryID' => 'nullable|integer|exists:categories,categoryID',
+                'goodID' => 'nullable|integer|exists:goods,goodID', 
+                'priority' => 'nullable|in:Immediate,Normal',
+                'description' => 'nullable|string',
+                'image' => 'nullable|string',
+                'matricula' => 'nullable|integer|exists:users,matricula',
+                'status' => 'nullable|in:Pending,Diagnostiqued,Completed',
+            ]);
 
-        return response()->json($report, 200);
+            $report->fill($validated);
+
+            if ($report->isDirty()) {
+                $report->save();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Reporte actualizado exitosamente.',
+                'data' => $report
+            ], 200);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El reporte no fue encontrado.'
+            ], 404);
+        } catch (Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ocurrió un error inesperado, intente nuevamente.'
+            ], 500);
+        }
     }
 
     // Eliminar un reporte

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Building;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Throwable;
 
 class BuildingController extends Controller
 {
@@ -35,13 +37,37 @@ class BuildingController extends Controller
     // Actualizar un edificio
     public function update(Request $request, $buildingID)
     {
-        $request->validate([
-            'buildingID' => 'required|string|max:1|unique:buildings,buildingID,' . $buildingID . ',buildingID', // Validar nuevo ID único
-        ]);
+        try {
+            $building = Building::findOrFail($buildingID);
 
-        $building = Building::findOrFail($buildingID);
-        $building->update($request->all());
-        return response()->json($building, 200);
+            $validated = $request->validate([
+                'name' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:255',
+                // ...other fields...
+            ]);
+
+            $building->fill($validated);
+
+            if ($building->isDirty()) {
+                $building->save();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Edificio actualizado exitosamente.',
+                'data' => $building
+            ], 200);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El edificio no fue encontrado.'
+            ], 404);
+        } catch (Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ocurrió un error inesperado, intente nuevamente.'
+            ], 500);
+        }
     }
 
     // Eliminar un edificio

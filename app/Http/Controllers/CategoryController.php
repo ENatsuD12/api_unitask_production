@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Throwable;
 
 class CategoryController extends Controller
 {
@@ -36,18 +38,38 @@ class CategoryController extends Controller
     }
 
     // Actualizar una categoría existente
-    public function update(Request $request, $id)
+    public function update(Request $request, $categoryID)
     {
-        $request->validate([
-            'name' => 'required|string|max:100|unique:categories,name,' . $id . ',categoryID',
-        ]);
+        try {
+            $category = Category::findOrFail($categoryID);
 
-        $category = Category::findOrFail($id);
-        $category->update([
-            'name' => $request->input('name'),
-        ]);
+            $validated = $request->validate([
+                'name' => 'nullable|string|max:255',
+                // ...other fields...
+            ]);
 
-        return response()->json($category, 200);
+            $category->fill($validated);
+
+            if ($category->isDirty()) {
+                $category->save();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Categoría actualizada exitosamente.',
+                'data' => $category
+            ], 200);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La categoría no fue encontrada.'
+            ], 404);
+        } catch (Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ocurrió un error inesperado, intente nuevamente.'
+            ], 500);
+        }
     }
 
     // Eliminar una categoría
