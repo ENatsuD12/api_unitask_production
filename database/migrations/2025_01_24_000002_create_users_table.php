@@ -45,6 +45,7 @@ return new class extends Migration
                 'created_at' => now(),
                 'updated_at' => now()
             ],
+            // Agrega más datos según sea necesario
         ]);
     }
 

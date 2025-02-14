@@ -5,9 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Report;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use app\Models\Building;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Throwable;
+use App\Models\Building;
 
 class ReportController extends Controller
 {
@@ -37,19 +35,25 @@ class ReportController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'buildingID' => 'required|string|max:10|exists:buildings,buildingID',
-            'roomID' => 'required|string|max:10|exists:rooms,roomID',
+            'buildingID' => 'required|integer|exists:buildings,buildingID', 
+            'roomID' => 'required|integer|exists:rooms,roomID', 
             'categoryID' => 'required|integer|exists:categories,categoryID',
             'goodID' => 'required|integer|exists:goods,goodID', 
             'priority' => 'required|in:Immediate,Normal',
             'description' => 'required|string',
             'image' => 'nullable|string',
-            'userID' => 'required|integer|exists:users,userID',
-            'status' => 'required|in:Pending,In Progress,Completed',
+            'userID' => 'required|integer|exists:users,userID', 
+            'statusID' => 'required|integer|exists:statuses,statusID', 
+            'requires_approval' => 'boolean', 
+            'involve_third_parties' => 'boolean', 
+            'folio' => 'nullable|string|size:7|unique:reports,folio', 
         ]);
 
         // Generar un folio único si no se proporciona
         $folio = $request->input('folio') ?? $this->generateUniqueFolio();
+
+        // Registro de depuración
+        \Log::info('Generated folio: ' . $folio);
 
         $reportData = $request->all();
         $reportData['folio'] = $folio;
@@ -63,7 +67,7 @@ class ReportController extends Controller
     private function generateUniqueFolio()
     {
         do {
-            $folio = 'REP' . Str::upper(Str::random(7));
+            $folio = 'REP' . Str::upper(Str::random(4)); // Ajustado a 4 caracteres aleatorios
         } while (Report::where('folio', $folio)->exists());
 
         return $folio;
@@ -72,56 +76,40 @@ class ReportController extends Controller
     // Mostrar un reporte por folio
     public function show($folio)
     {
-        $report = Report::with(['building', 'room', 'category', 'goods', 'user'])->findOrFail($folio);
+        $report = Report::with(['building', 'room', 'category', 'goods', 'user'])
+            ->where('folio', $folio)
+            ->firstOrFail();
         return response()->json($report, 200);
     }
 
     // Actualizar un reporte
     public function update(Request $request, $folio)
     {
-        try {
-            $report = Report::findOrFail($folio);
+        $request->validate([
+            'buildingID' => 'nullable|integer|exists:buildings,buildingID', 
+            'roomID' => 'nullable|integer|exists:rooms,roomID', 
+            'categoryID' => 'nullable|integer|exists:categories,categoryID',
+            'goodID' => 'nullable|integer|exists:goods,goodID', 
+            'priority' => 'nullable|in:Immediate,Normal',
+            'description' => 'nullable|string',
+            'image' => 'nullable|string',
+            'userID' => 'nullable|integer|exists:users,userID', 
+            'statusID' => 'nullable|integer|exists:statuses,statusID', 
+            'requires_approval' => 'boolean', 
+            'involve_third_parties' => 'boolean', 
+            'folio' => 'nullable|string|size:7|unique:reports,folio,' . $folio . ',folio', 
+        ]);
 
-            $validated = $request->validate([
-                'buildingID' => 'nullable|string|max:10|exists:buildings,buildingID',
-                'roomID' => 'nullable|string|max:10|exists:rooms,roomID',
-                'categoryID' => 'nullable|integer|exists:categories,categoryID',
-                'goodID' => 'nullable|integer|exists:goods,goodID', 
-                'priority' => 'nullable|in:Immediate,Normal',
-                'description' => 'nullable|string',
-                'image' => 'nullable|string',
-                'matricula' => 'nullable|integer|exists:users,matricula',
-                'status' => 'nullable|in:Pending,Diagnostiqued,Completed',
-            ]);
+        $report = Report::where('folio', $folio)->firstOrFail();
+        $report->update($request->all());
 
-            $report->fill($validated);
-
-            if ($report->isDirty()) {
-                $report->save();
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Reporte actualizado exitosamente.',
-                'data' => $report
-            ], 200);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'El reporte no fue encontrado.'
-            ], 404);
-        } catch (Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ocurrió un error inesperado, intente nuevamente.'
-            ], 500);
-        }
+        return response()->json($report, 200);
     }
 
     // Eliminar un reporte
     public function destroy($folio)
     {
-        $report = Report::findOrFail($folio);
+        $report = Report::where('folio', $folio)->firstOrFail();
         $report->delete();
 
         return response()->json(['message' => 'Report deleted successfully'], 200);
@@ -129,7 +117,7 @@ class ReportController extends Controller
 
     public function GetdiagnosticNot ()
     {
-        $reports = Report::where('status', 'Diagnostiqued')->get();
+        $reports = Report::where('statusID', 2)->get(); 
         return response()->json($reports, 200);
     }
 }

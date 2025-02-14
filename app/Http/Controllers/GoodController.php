@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Good;
 use Illuminate\Http\Request;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Throwable;
 
 class GoodController extends Controller
 {
@@ -37,38 +35,17 @@ class GoodController extends Controller
     }
 
     // Actualizar un bien existente
-    public function update(Request $request, $goodID)
+    public function update(Request $request, $id)
     {
-        try {
-            $good = Good::findOrFail($goodID);
+        $request->validate([
+            'name' => 'nullable|string|max:255',
+            'categoryID' => 'nullable|integer|exists:categories,categoryID',
+        ]);
 
-            $validated = $request->validate([
-                'name' => 'nullable|string|max:255',
-                'categoryID' => 'nullable|integer|exists:categories,categoryID',
-            ]);
+        $good = Good::findOrFail($id);
+        $good->update($request->all());
 
-            $good->fill($validated);
-
-            if ($good->isDirty()) {
-                $good->save();
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Bien actualizado exitosamente.',
-                'data' => $good
-            ], 200);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'El bien no fue encontrado.'
-            ], 404);
-        } catch (Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ocurrió un error inesperado, intente nuevamente.'
-            ], 500);
-        }
+        return response()->json($good, 200);
     }
 
     // Eliminar un bien

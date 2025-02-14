@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Room;
 use Illuminate\Http\Request;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Throwable;
 
 class RoomController extends Controller
 {
@@ -39,37 +37,13 @@ class RoomController extends Controller
     // Actualizar un salón existente
     public function update(Request $request, $roomID, $buildingID)
     {
-        try {
-            $room = Room::where('roomID', $roomID)->where('buildingID', $buildingID)->firstOrFail();
+        $request->validate([
+            'typeID' => 'nullable|integer|exists:types,typeID',
+        ]);
 
-            $validated = $request->validate([
-                'name' => 'nullable|string|max:255',
-                'key' => 'nullable|string|max:255',
-                // ...other fields...
-            ]);
-
-            $room->fill($validated);
-
-            if ($room->isDirty()) {
-                $room->save();
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Salón actualizado exitosamente.',
-                'data' => $room
-            ], 200);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'El salón no fue encontrado.'
-            ], 404);
-        } catch (Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ocurrió un error inesperado, intente nuevamente.'
-            ], 500);
-        }
+        $room = Room::where('roomID', $roomID)->where('buildingID', $buildingID)->firstOrFail();
+        $room->update($request->all());
+        return response()->json($room, 200);
     }
 
     // Eliminar un salón

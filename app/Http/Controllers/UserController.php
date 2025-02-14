@@ -6,31 +6,28 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log; // Importar la clase Log
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Throwable;
 
 class UserController extends Controller
 {
     // Verificar el estado de inicio de sesión del usuario
     public function verifyLogin(Request $request)
     {
-        Log::info('verifyLogin called', ['request' => $request->all()]);
+        \Log::info('verifyLogin called', ['request' => $request->all()]);
 
         $credentials = $request->validate([
             'email' => 'required|string|email',
             'password' => 'required|string',
         ]);
 
-        Log::info('Credentials validated', ['credentials' => $credentials]);
+        \Log::info('Credentials validated', ['credentials' => $credentials]);
 
         if (Auth::attempt($credentials)) {
-            Log::info('Authentication successful');
+            \Log::info('Authentication successful');
             //$request->session()->regenerate();
             return response()->json(['message' => 'Si'], 200);
         }
 
-        Log::info('Authentication failed');
+        \Log::info('Authentication failed');
         return response()->json(['message' => 'No'], 401);
     }
 
@@ -87,38 +84,24 @@ class UserController extends Controller
     // Actualizar un usuario existente
     public function update(Request $request, $matricula)
     {
-        try {
-            $user = User::findOrFail($matricula);
+        $request->validate([
+            'name' => 'nullable|string|max:255',
+            'lastname' => 'nullable|string|max:255',
+            'secundlastname' => 'nullable|string|max:255',
+            'email' => 'nullable|string|email|max:255|unique:users,email,' . $matricula . ',matricula',
+            'password' => 'nullable|string|min:8',
+            'birthday' => 'nullable|date',
+        ]);
 
-            $validated = $request->validate([
-                'name' => 'nullable|string|max:255',
-                'lastname' => 'nullable|string|max:255',
-                'email' => 'nullable|string|email|max:255|unique:users,email,' . $matricula,
-                // ...other fields...
-            ]);
+        $user = User::where('matricula', $matricula)->firstOrFail();
+        $data = $request->all();
 
-            $user->fill($validated);
-
-            if ($user->isDirty()) {
-                $user->save();
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Usuario actualizado exitosamente.',
-                'data' => $user
-            ], 200);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'El usuario no fue encontrado.'
-            ], 404);
-        } catch (Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ocurrió un error inesperado, intente nuevamente.'
-            ], 500);
+        if ($request->has('password')) {
+            $data['password'] = Hash::make($request->password);
         }
+
+        $user->update($data);
+        return response()->json($user, 200);
     }
 
     // Eliminar un usuario

@@ -14,7 +14,6 @@ use App\Models\Status;
 use Illuminate\Support\Facades\DB;
 use App\Models\Diagnostic;
 use App\Models\Material;
-use Illuminate\Support\Str;
 
 class MovilController extends Controller
 {
@@ -243,40 +242,5 @@ class MovilController extends Controller
             ->get();
 
         return response()->json($materials);
-    }
-
-    public function postReports(Request $request)
-    {
-        $request->validate([
-            'buildingID' => 'required|string|max:10|exists:buildings,buildingID',
-            'roomID' => 'required|string|max:10|exists:rooms,roomID',
-            'categoryID' => 'required|integer|exists:categories,categoryID',
-            'goodID' => 'required|integer|exists:goods,goodID', 
-            'priority' => 'required|in:Immediate,Normal',
-            'description' => 'required|string',
-            'image' => 'nullable|string',
-            'userID' => 'required|integer|exists:users,userID',
-            'status' => 'required|in:Pending,In Progress,Completed',
-        ]);
-
-        // Generar un folio único si no se proporciona
-        $folio = $request->input('folio') ?? $this->generateUniqueFolio();
-
-        $reportData = $request->all();
-        $reportData['folio'] = $folio;
-
-        $report = Report::create($reportData);
-
-        return response()->json($report, 201);
-    }
-
-    // Método para generar un folio único
-    private function generateUniqueFolio()
-    {
-        do {
-            $folio = 'REP' . Str::upper(Str::random(7));
-        } while (Report::where('folio', $folio)->exists());
-
-        return $folio;
     }
 }
